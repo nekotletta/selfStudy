@@ -1,0 +1,1 @@
+A repository for the stuff i learn about by myself
