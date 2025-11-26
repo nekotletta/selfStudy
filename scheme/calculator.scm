@@ -7,11 +7,33 @@
     (number? x)
 )
 
-(define (compute exp1 exp2 curr-ans op)
-    (op (determine-action exp1 curr-ans) (determine-action exp2 curr-ans))
+(define (fold procedure accumulator list)
+  (if (null? list) accumulator
+      (let ((head (car list))
+            (tail (cdr list)))
+        (fold procedure (procedure accumulator head) tail))))
+
+(define (list-vars vars)
+    (fold (lambda (rest curr)
+        (begin
+            (display (string-append (symbol->string (car curr)) " = " (number->string (cadr curr)) "\n"))
+            rest
+        )) '() vars)
 )
 
 
+(define (var-defined all-vars var)
+    (fold (lambda (rest curr) (if (eq? (car curr) var) #t rest)) #f all-vars)
+)
+
+(define (def var)
+    (display "hihi")
+)
+
+(define (compute exp1 exp2 curr-ans op vars)
+    (let (( result (op (determine-action exp1 curr-ans vars) (determine-action exp2 curr-ans vars))))
+    (list result vars))
+)
 
 (define (scientific-repr num)
     (define (truncate-one-place n)
@@ -47,17 +69,17 @@
     )
 )
 
- (define (determine-action exp curr-ans)
+ (define (determine-action exp curr-ans curr-vars)
     (cond ((is-number exp) (exact->inexact exp))
         ((and (symbol? exp) (eq? exp 'ans)) curr-ans)
         ((pair? exp)
             (let ((first-exp (cadr exp))
             (second-exp (caddr exp)))
             (cond 
-                ((eq? (car exp) '+) (compute first-exp second-exp curr-ans + ))
-                ((eq? (car exp) '-) (compute first-exp second-exp curr-ans -))
-                ((eq? (car exp) '*) (compute first-exp second-exp curr-ans * ))
-                ((eq? (car exp) '/) (compute first-exp second-exp curr-ans /))
+                ((eq? (car exp) '+) (compute first-exp second-exp curr-ans +  curr-vars))
+                ((eq? (car exp) '-) (compute first-exp second-exp curr-ans - curr-vars))
+                ((eq? (car exp) '*) (compute first-exp second-exp curr-ans *  curr-vars))
+                ((eq? (car exp) '/) (compute first-exp second-exp curr-ans / curr-vars))
                 ((eq? (car exp) '^) (power first-exp second-exp curr-ans))
                 ((eq? (car exp) 'E) (scientific-notation first-exp second-exp curr-ans))
                 (else (error "Unknown operation"))
@@ -67,11 +89,11 @@
  )
 
 
-(define (compile exp curr-ans)
-    (determine-action exp curr-ans)
+(define (compile exp curr-ans vars)
+    (determine-action exp curr-ans vars)
 )
 
- (define (input-loop ans)
+ (define (input-loop ans vars)
      (display "Enter expression to evaluate (or 'exit' to quit): ")
      (define input-exp (read))
      (if (eq? input-exp 'exit)
@@ -79,23 +101,28 @@
             (display "Exiting...")
             (newline))
         (begin
-             (let ((result (compile input-exp ans)))
-                (if (or (> result 100000) (< result 0.00001))
+             (let ((result (compile input-exp ans vars)))
+                (if (or (> (car result) 100000) (< (car result) 0.00001))
                     (begin
                         (display "Result in scientific notation: ")
-                        (display (scientific-repr result))
-                        (newline))
-                 (begin
-                    (display "Result: ")
-                    (display result)
-                    (newline)
-                ))
+                        (display (scientific-repr (car result)))
+                        (newline)
+                    )
+                    (begin
+                        (display "Result: ")
+                        (display (car result))
+                        (newline)
+                    )
+                )
+
+                (display "Your current vars are:")(newline)
+                (list-vars (cadr result))(newline)
         
 
-             (input-loop result))))
+             (input-loop result (cadr result)))))
 )
 
 (display "Welcome to the Scheme Calculator!")(newline)
 (display "Plase enter expressions in polish notation. (+ 2 4)")(newline)
 (display "Supports: arithmethic operations, power (^), scientific notation (E), and ans")(newline)(newline)
-(input-loop 0)
+(input-loop 0 '((x 12) (y 3)))

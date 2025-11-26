@@ -15,26 +15,41 @@
 
 (define sum (fold (lambda (a b) (cons (+ b (car a)) a)) (list 0) (list 1 2 3 4 5)))
 
+(define find-val (fold (lambda (rest curr) (if (eq? (car curr) 't) #t rest)) #f '( (x 1) (y 3) (z 4) )))
+
+(define (print-val list)
+  (fold (lambda (rest curr)
+          (begin
+            (display (string-append (symbol->string (car curr))
+                                    " = "
+                                    (number->string (cadr curr))
+                                    "\n"))
+            rest))
+        '()  ; initial accumulator (can be anything)
+        list))
+(print-val '((x 1) (y 3) (z 4)))
+
+
 (define min (fold (lambda (a b) (if (< b a) b a)) 0 (list 1 2 -3 4 5)))
 
 (define square (fold (lambda (a b) (if (< b 0) (cons (/ 1 (* b b)) a) (cons (* b b) a))) 
                   (list) (list 1 2 -3 4 5)))
 
-(define n 5)
-(define custom-power 
-    (fold (lambda (a b)
-          (letrec ((power
-                (lambda (b times)
-                    (if (= times 0) 1
-                    (* b (power b (- times 1)))
-                )
-            )))
-            (let ((res (power b n)))
-              (cons res a))))
-        (list)
-        (list 1 2 -3 4 5)
-    )
-)
+ (define n 5)
+ (define custom-power 
+     (fold (lambda (a b)
+           (letrec ((power
+                 (lambda (b times)
+                     (if (= times 0) 1
+                     (* b (power b (- times 1)))
+                 )
+             )))
+             (let ((res (power b n)))
+               (cons res a))))
+         (list)
+         (list 1 2 -3 4 5)
+     )
+ )
 
 (define fact
     (fold (lambda (a b)
@@ -46,21 +61,3 @@
         (cons res a))))
     (list)
     (list 1 2 3 4 5)))
-
- (define n 5)
-(define custom-power 
-    (fold (lambda (a b)
-          (letrec ((power
-                (lambda (b times)
-                    (if (= times 0) 1
-                    (let t ((multb b b)
-                    (t (power b (- times 1))))
-                )
-            )))
-            (let ((res (power b n)))
-              (cons res a))))
-        (list)
-        (list 1 2 -3 4 5)
-    )
-))
-(display custom-power)
