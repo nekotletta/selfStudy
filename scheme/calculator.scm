@@ -41,6 +41,9 @@
     (let (( var (determine-action new-var curr-ans all-vars))
           ( val (determine-action new-val curr-ans all-vars)))
 
+          (if (list? val)
+              (set! val (car val)) val)
+
         (if (var-defined var all-vars)
 
             (let ((updated-pair (update-var var val all-vars)))
@@ -65,6 +68,11 @@
     var)
 )
 
+(define (format-result val)
+    (if (list? val) (car val)
+    val)
+)
+
 (define (compute exp1 exp2 curr-ans op vars)
 
     (let ((val1 (determine-action exp1 curr-ans vars))
@@ -72,10 +80,8 @@
 
         ; compute returns a list of result and vars
         ; we can operate of the result of the computation
-        (when (list? val1)
-            (set! val1 (car val1)))
-        (when (list? val2)
-            (set! val2 (car val2)))
+        (set! val1 (format-result val1))
+        (set! val2 (format-result val2))
 
         (set! val1 (resolve-var val1 vars))
         (set! val2 (resolve-var val2 vars))
@@ -113,7 +119,6 @@
     )
 )
 
-
 ; supports negative exponents, somewhat
 (define (power pow num curr-ans curr-vars)
     (letrec ((power-helper
@@ -133,8 +138,108 @@
     )
 )
 
+(define (evaluate-logical val1 val2 comparison)
+    ;(display "Evaluating logical operation")(newline)
+    (cond 
+        ((string=? comparison "and") 
+            (cond
+                ((boolean? val1) 
+                    (cond 
+                        ((boolean? val2) (if (and (eq? val1 #t) (eq? val2 #t)) #t #f))
+                        ((number? val2) (if (and (eq? val1 #t) (> val2 0)) #t #f))
+                    )
+                )
+            )
+        )
+        ((string=? comparison "or") 
+            (cond
+                ((boolean? val1) 
+                    (cond 
+                        ((boolean? val2) (if (or (eq? val1 #t) (eq? val2 #t)) #t #f))
+                        ((number? val2) (if (or (eq? val1 #t) (> val2 0)) #t #f))
+                    )
+                )
+            )
+        )
+        (else (error "Unknown logical operation"))
+    )
+)
+
+(define (validate-condition exp1 exp2 curr-ans comparison curr-vars)
+    (let ((val1 (determine-action exp1 curr-ans curr-vars))
+          (val2 (determine-action exp2 curr-ans curr-vars)))
+
+          ;(display "this my og result conditional: ")(display val1)(newline)
+          (set! val1 (resolve-var val1 curr-vars))
+          (set! val2 (resolve-var val2 curr-vars))
+
+            (set! val1 (format-result val1))
+            (set! val2 (format-result val2))
+
+            ;(display "this my og result conditional: ")(display val1)(newline)
+            ;(display "this my og result conditional: ")(display val2)(newline)
+
+            (cond 
+                ((eq? comparison =) (list (if (= val1 val2) #t #f) curr-vars))
+                ((eq? comparison <) (list (if (< val1 val2) #t #f) curr-vars))
+                ((eq? comparison >) (list (if (> val1 val2) #t #f) curr-vars))
+                ((string? comparison)
+                    (cond 
+                        ((string=? comparison "and") (list (evaluate-logical val1 val2 "and") curr-vars))
+                        ((string=? comparison "or") (list (evaluate-logical val1 val2 "or") curr-vars))
+                        (else (error "Unknown logical operation"))
+                    )
+                )
+                (else (error (string-append (symbol->string comparison) ": Unknown comparison operator")))
+            )
+    )
+)
+
+(define (conditional condition if-true if-false curr-ans curr-vars)
+
+
+        (let ((cond-result (determine-action condition curr-ans curr-vars)))
+            ;(set! cond-result (resolve-var cond-result curr-vars))
+            ;(display (string-append "Condition evaluated to: " (format "~a" (car cond-result))))(newline)
+        ;   (set! condition (resolve-var condition curr-vars))
+
+           (if (eq? (car cond-result) #t)
+               (begin
+                (if (string? if-true) 
+                    (begin (display if-true)(newline) (list curr-ans curr-vars))
+                    (begin
+                        ;(display "this my og result: ")(display if-true)(newline)
+                        (set! if-true (determine-action if-true curr-ans curr-vars))
+                        ;(display "this my mid result: ")(display if-true)(newline)
+                        (set! if-true (resolve-var if-true curr-vars))
+
+                        ;(display "this all i got: ")(display if-true)(newline)
+                        (list if-true curr-vars)
+                        
+                        ;(list (car if-true) (cadr if-true))
+                    )
+                )
+               )
+               (begin
+                (if (string? if-false) 
+                    (begin (display if-false)(newline) (list curr-ans curr-vars))
+                    (begin
+                        ;(display "this my og result: ")(display if-false)(newline)
+                        (set! if-false (determine-action if-false curr-ans curr-vars))
+                        (set! if-false (resolve-var if-false curr-vars))
+                        (list if-false curr-vars)
+                        ;(set! if-false (format-result if-false))
+                        
+                    )
+                )
+               )
+           )
+        )
+)
+
  (define (determine-action exp curr-ans curr-vars)
     (cond ((number? exp) (exact->inexact exp))
+          ((boolean? exp) exp)
         ((and (symbol? exp) (eq? exp 'ans)) curr-ans)
         ((and (symbol? exp) (not (eq? exp 'ans))) exp)
         ((pair? exp)
@@ -148,9 +253,15 @@
                 ((eq? (car exp) '^) (power first-exp second-exp curr-ans curr-vars))
                 ((eq? (car exp) 'E) (scientific-notation first-exp second-exp curr-ans curr-vars))
                 ((eq? (car exp) 'DEF) (def first-exp second-exp curr-ans curr-vars))
-                (else (error "Unknown operation"))
+                ((eq? (car exp) 'IF) (conditional first-exp second-exp (cadddr exp) curr-ans curr-vars))
+                ((eq? (car exp) 'EQ) (validate-condition first-exp second-exp curr-ans = curr-vars))
+                ((eq? (car exp) 'LT) (validate-condition first-exp second-exp curr-ans < curr-vars))
+                ((eq? (car exp) 'GT) (validate-condition first-exp second-exp curr-ans > curr-vars))
+                ((eq? (car exp) 'OR) (validate-condition first-exp second-exp curr-ans "or" curr-vars))
+                ((eq? (car exp) 'AND) (validate-condition first-exp second-exp curr-ans "and" curr-vars))
+                (else (error (string-append (symbol->string (car exp)) ": Unknown operation")))
             ))
-        ) (else (error "Unknown expression"))
+        ) (else (error (string-append (symbol->string (car exp)) ": Unknown expression type")))
     ) 
  )
 
@@ -168,6 +279,8 @@
             (newline))
         (begin
              (let ((result (compile input-exp ans vars)))
+                ;(display "sali del vbideojuego con: ")(display result)(newline)
+                
                 (if (and (not (= (car result) 0)) (or (> (abs (car result)) 100000) (< (abs (car result)) 0.00001)))
                     
                     (begin
@@ -193,5 +306,6 @@
 
 (display "Welcome to the Scheme Calculator!")(newline)
 (display "Plase enter expressions in polish notation. (+ 2 4)")(newline)
-(display "Supports: arithmethic operations, power (^), scientific notation (E), variables (DEF), and ans")(newline)(newline)
+(display "Supports: arithmethic operations, power (^), scientific notation (E), variables (DEF), and ans")(newline)
+(display "IF syntax --> (IF (condition) (result if true) (result if false))")(newline)(newline)
 (input-loop 0 '())
